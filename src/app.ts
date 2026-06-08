@@ -29,9 +29,21 @@ export const app = express();
 ========================= */
 app.use(helmet());
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://sis-stockf.onrender.com",
+];
+
 app.use(
   cors({
-    origin: env.CORS_ORIGIN,
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("No permitido por CORS"));
+    },
     credentials: true,
   })
 );
