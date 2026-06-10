@@ -254,7 +254,8 @@ async function restarStockProducto(idproducto: string, cantidad: number) {
 async function consumirStockPorPeps(
   iddetalleventa: string,
   idproducto: string,
-  cantidadNecesaria: number
+  cantidadNecesaria: number,
+  precioventa: number
 ) {
   const lotes = await obtenerLotesDisponiblesPorProducto(idproducto);
 
@@ -284,6 +285,13 @@ async function consumirStockPorPeps(
     const cantidadConsumida = Math.min(disponible, restante);
     const nuevoStockRestante = disponible - cantidadConsumida;
     const preciocosto = Number(lote.preciocosto ?? 0);
+
+    if (Number(precioventa) < preciocosto) {
+      throw new Error(
+        `El precio de venta no puede ser menor al precio de compra. Producto: ${idproducto}. Precio venta: ${precioventa}, precio costo: ${preciocosto}`
+      );
+    }
+
     const subtotalcosto = cantidadConsumida * preciocosto;
 
     const { error: updDetalleCompraError } = await supabaseAdmin
@@ -435,7 +443,8 @@ export async function registrarVentaCompleta(payload: VentaCompletaCreate) {
       await consumirStockPorPeps(
         detalle.iddetalleventa,
         detalle.idproducto,
-        Number(detalle.cantidad)
+        Number(detalle.cantidad),
+        Number(detalle.precioventa)
       );
     }
 
@@ -512,7 +521,8 @@ export async function cambiarEstadoVenta(idventa: string, estado: VentaEstado) {
         await consumirStockPorPeps(
           detalle.iddetalleventa,
           detalle.idproducto,
-          Number(detalle.cantidad)
+          Number(detalle.cantidad),
+          Number(detalle.precioventa)
         );
       }
 
