@@ -146,7 +146,7 @@ export async function sincronizarEstadoProductoPorStock(idproducto: string) {
 export async function listarProductos(query: ProductoListQuery) {
   const page = Math.max(1, Number(query.page ?? 1));
   const limitRaw = Number(query.limit ?? 20);
-  const limit = Math.min(Math.max(limitRaw, 1), 200);
+  const limit = Math.min(Math.max(limitRaw, 1), 5000);
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
@@ -164,23 +164,23 @@ export async function listarProductos(query: ProductoListQuery) {
   const ascending = (query.order ?? "desc").toLowerCase() === "asc";
 
   let q = supabaseAdmin
-    .from("productos")
+    .from("productos_list_view")
     .select(
       `
-      idproducto,
-      codigoprod,
-      nombre,
-      descripcion,
-      stock,
-      urlimagen,
-      precioventa,
-      estado,
-      creado_en,
-      idcategoria,
-      idmarca,
-      categorias:categorias ( idcategoria, nombre ),
-      marcas:marcas ( idmarca, nombre )
-      `,
+  idproducto,
+  codigoprod,
+  nombre,
+  descripcion,
+  stock,
+  urlimagen,
+  precioventa,
+  estado,
+  creado_en,
+  idcategoria,
+  idmarca,
+  categoria_nombre,
+  marca_nombre
+  `,
       { count: "exact" }
     )
     .order(orderBy, { ascending })
@@ -197,7 +197,7 @@ export async function listarProductos(query: ProductoListQuery) {
   if (query.q && query.q.trim()) {
     const term = query.q.trim();
     q = q.or(
-      `nombre.ilike.%${term}%,codigoprod.ilike.%${term}%,descripcion.ilike.%${term}%`
+      `nombre.ilike.%${term}%,codigoprod.ilike.%${term}%,descripcion.ilike.%${term}%,categoria_nombre.ilike.%${term}%,marca_nombre.ilike.%${term}%`
     );
   }
 
@@ -205,10 +205,13 @@ export async function listarProductos(query: ProductoListQuery) {
 
   if (error) throw new Error(error.message);
 
+  const total = count ?? 0;
+
   return {
     page,
     limit,
-    total: count ?? 0,
+    total,
+    totalPages: Math.ceil(total / limit),
     data: data ?? [],
   };
 }
