@@ -9,6 +9,7 @@ export type ProductoCreate = {
   idmarca: string;
   urlimagen?: string | null;
   precioventa?: number;
+  preciomayor?: number;
   estado?: ProductoEstado;
 };
 
@@ -19,6 +20,7 @@ export type ProductoUpdate = {
   idmarca?: string;
   urlimagen?: string | null;
   precioventa?: number;
+  preciomayor?: number;
   estado?: ProductoEstado;
 };
 
@@ -34,10 +36,25 @@ export type ProductoListQuery = {
   order?: "asc" | "desc";
 };
 
+const PRODUCTO_SELECT = `
+  idproducto,
+  codigoprod,
+  nombre,
+  descripcion,
+  idcategoria,
+  idmarca,
+  stock,
+  urlimagen,
+  precioventa,
+  preciomayor,
+  estado,
+  creado_en,
+  categorias:categorias ( idcategoria, nombre ),
+  marcas:marcas ( idmarca, nombre )
+`;
+
 function normalizeName(name: string) {
-  return String(name ?? "")
-    .trim()
-    .toUpperCase();
+  return String(name ?? "").trim().toUpperCase();
 }
 
 function normalizeText(value?: string | null) {
@@ -70,6 +87,16 @@ function parseUniqueMessage(errorMessage: string) {
     return "Registro duplicado: verifica nombre y/o código del producto.";
   }
   return errorMessage;
+}
+
+function validarPrecio(value: unknown, label: string) {
+  const precio = Number(value ?? 0);
+
+  if (!Number.isFinite(precio) || precio < 0) {
+    throw new Error(`${label} inválido`);
+  }
+
+  return precio;
 }
 
 async function obtenerMarcaPorId(idmarca: string) {
@@ -115,6 +142,7 @@ async function generarCodigoProducto(
   const siguiente = String(maxCorrelativo + 1).padStart(5, "0");
   return `${prefix}-${siguiente}`;
 }
+
 export async function sincronizarEstadoProductoPorStock(idproducto: string) {
   const { data: producto, error } = await supabaseAdmin
     .from("productos")
@@ -147,6 +175,7 @@ export async function listarProductos(query: ProductoListQuery) {
   const page = Math.max(1, Number(query.page ?? 1));
   const limitRaw = Number(query.limit ?? 20);
   const limit = Math.min(Math.max(limitRaw, 1), 5000);
+
   const from = (page - 1) * limit;
   const to = from + limit - 1;
 
@@ -167,20 +196,21 @@ export async function listarProductos(query: ProductoListQuery) {
     .from("productos_list_view")
     .select(
       `
-  idproducto,
-  codigoprod,
-  nombre,
-  descripcion,
-  stock,
-  urlimagen,
-  precioventa,
-  estado,
-  creado_en,
-  idcategoria,
-  idmarca,
-  categoria_nombre,
-  marca_nombre
-  `,
+      idproducto,
+      codigoprod,
+      nombre,
+      descripcion,
+      stock,
+      urlimagen,
+      precioventa,
+      preciomayor,
+      estado,
+      creado_en,
+      idcategoria,
+      idmarca,
+      categoria_nombre,
+      marca_nombre
+      `,
       { count: "exact" }
     )
     .order(orderBy, { ascending })
@@ -196,6 +226,7 @@ export async function listarProductos(query: ProductoListQuery) {
 
   if (query.q && query.q.trim()) {
     const term = query.q.trim();
+
     q = q.or(
       `nombre.ilike.%${term}%,codigoprod.ilike.%${term}%,descripcion.ilike.%${term}%,categoria_nombre.ilike.%${term}%,marca_nombre.ilike.%${term}%`
     );
@@ -219,23 +250,7 @@ export async function listarProductos(query: ProductoListQuery) {
 export async function obtenerProductoPorId(idproducto: string) {
   const { data, error } = await supabaseAdmin
     .from("productos")
-    .select(
-      `
-      idproducto,
-      codigoprod,
-      nombre,
-      descripcion,
-      idcategoria,
-      idmarca,
-      stock,
-      urlimagen,
-      precioventa,
-      estado,
-      creado_en,
-      categorias:categorias ( idcategoria, nombre ),
-      marcas:marcas ( idmarca, nombre )
-      `
-    )
+    .select(PRODUCTO_SELECT)
     .eq("idproducto", idproducto)
     .single();
 
@@ -250,10 +265,8 @@ export async function crearProducto(payload: ProductoCreate) {
   if (!payload.idcategoria) throw new Error("idcategoria es obligatorio");
   if (!payload.idmarca) throw new Error("idmarca es obligatorio");
 
-  const precioventa = Number(payload.precioventa ?? 0);
-  if (!Number.isFinite(precioventa) || precioventa < 0) {
-    throw new Error("precioventa inválido");
-  }
+  const precioventa = validarPrecio(payload.precioventa, "precioventa");
+  const preciomayor = validarPrecio(payload.preciomayor, "preciomayor");
 
   if (
     payload.estado &&
@@ -274,29 +287,14 @@ export async function crearProducto(payload: ProductoCreate) {
     stock: 0,
     urlimagen: normalizeText(payload.urlimagen),
     precioventa,
+    preciomayor,
     estado: "INACTIVO",
   };
 
   const { data, error } = await supabaseAdmin
     .from("productos")
     .insert([insertRow])
-    .select(
-      `
-      idproducto,
-      codigoprod,
-      nombre,
-      descripcion,
-      idcategoria,
-      idmarca,
-      stock,
-      urlimagen,
-      precioventa,
-      estado,
-      creado_en,
-      categorias:categorias ( idcategoria, nombre ),
-      marcas:marcas ( idmarca, nombre )
-      `
-    )
+    .select(PRODUCTO_SELECT)
     .single();
 
   if (error) throw new Error(parseUniqueMessage(error.message));
@@ -336,17 +334,18 @@ export async function actualizarProducto(
   }
 
   if (payload.precioventa !== undefined) {
-    const precioventa = Number(payload.precioventa);
-    if (!Number.isFinite(precioventa) || precioventa < 0) {
-      throw new Error("precioventa inválido");
-    }
-    update.precioventa = precioventa;
+    update.precioventa = validarPrecio(payload.precioventa, "precioventa");
+  }
+
+  if (payload.preciomayor !== undefined) {
+    update.preciomayor = validarPrecio(payload.preciomayor, "preciomayor");
   }
 
   if (payload.estado !== undefined) {
     if (payload.estado !== "ACTIVO" && payload.estado !== "INACTIVO") {
       throw new Error("estado inválido (ACTIVO | INACTIVO)");
     }
+
     update.estado = payload.estado;
   }
 
@@ -358,23 +357,7 @@ export async function actualizarProducto(
     .from("productos")
     .update(update)
     .eq("idproducto", idproducto)
-    .select(
-      `
-      idproducto,
-      codigoprod,
-      nombre,
-      descripcion,
-      idcategoria,
-      idmarca,
-      stock,
-      urlimagen,
-      precioventa,
-      estado,
-      creado_en,
-      categorias:categorias ( idcategoria, nombre ),
-      marcas:marcas ( idmarca, nombre )
-      `
-    )
+    .select(PRODUCTO_SELECT)
     .single();
 
   if (error) throw new Error(parseUniqueMessage(error.message));
@@ -393,23 +376,7 @@ export async function setEstadoProducto(
     .from("productos")
     .update({ estado })
     .eq("idproducto", idproducto)
-    .select(
-      `
-      idproducto,
-      codigoprod,
-      nombre,
-      descripcion,
-      idcategoria,
-      idmarca,
-      stock,
-      urlimagen,
-      precioventa,
-      estado,
-      creado_en,
-      categorias:categorias ( idcategoria, nombre ),
-      marcas:marcas ( idmarca, nombre )
-      `
-    )
+    .select(PRODUCTO_SELECT)
     .single();
 
   if (error) throw new Error(error.message);
@@ -423,23 +390,7 @@ export async function eliminarProducto(idproducto: string) {
     .from("productos")
     .delete()
     .eq("idproducto", idproducto)
-    .select(
-      `
-      idproducto,
-      codigoprod,
-      nombre,
-      descripcion,
-      idcategoria,
-      idmarca,
-      stock,
-      urlimagen,
-      precioventa,
-      estado,
-      creado_en,
-      categorias:categorias ( idcategoria, nombre ),
-      marcas:marcas ( idmarca, nombre )
-      `
-    )
+    .select(PRODUCTO_SELECT)
     .single();
 
   if (error) throw new Error(error.message);
