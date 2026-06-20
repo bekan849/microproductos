@@ -5,6 +5,7 @@ import {
   getVentaById,
   patchVentaEstado,
   postRegistrarVentaCompleta,
+  getProductosVendidosHoy,
 } from "../controllers/venta.controller";
 import {
   getDetalleVenta,
@@ -39,6 +40,13 @@ ventaRouter.post(
   decodeToken,
   requirePermission("ventas.crear"),
   postRegistrarVentaCompleta
+);
+
+ventaRouter.get(
+  "/dashboard/productos-vendidos-hoy",
+  decodeToken,
+  requirePermission("ventas.ver"),
+  getProductosVendidosHoy
 );
 
 ventaRouter.get(

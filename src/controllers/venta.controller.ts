@@ -6,8 +6,10 @@ import {
   registrarVentaCompleta,
   cambiarEstadoVenta,
   type VentaEstado,
+  listarProductosVendidosHoy,
 } from "../services/venta.service";
 import { listarDetalleVenta } from "../services/detalleventa.service";
+
 
 type ReqWithId = Request<{ id: string }>;
 
@@ -85,6 +87,15 @@ export async function patchVentaEstado(req: ReqPatchEstado, res: Response) {
 
     const data = await cambiarEstadoVenta(req.params.id, estado);
 
+    return res.json({ ok: true, data });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Error inesperado";
+    return res.status(400).json({ ok: false, message });
+  }
+}
+export async function getProductosVendidosHoy(_req: Request, res: Response) {
+  try {
+    const data = await listarProductosVendidosHoy();
     return res.json({ ok: true, data });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error inesperado";

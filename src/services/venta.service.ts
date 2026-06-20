@@ -535,3 +535,52 @@ export async function cambiarEstadoVenta(idventa: string, estado: VentaEstado) {
 
   return await actualizarEstadoVenta(idventa, estado);
 }
+
+export async function listarProductosVendidosHoy() {
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const { data, error } = await supabaseAdmin
+    .from("detalle_venta")
+    .select(`
+      iddetalleventa,
+      idventa,
+      idproducto,
+      cantidad,
+      precioventa,
+      subtotal,
+      creado_en,
+      venta!inner (
+        idventa,
+        fechaventa,
+        estado
+      ),
+      productos:productos (
+        idproducto,
+        codigoprod,
+        nombre,
+        urlimagen,
+        marcas:marcas (
+          nombre
+        )
+      )
+    `)
+    .eq("venta.estado", "COMPLETADA")
+    .gte("venta.fechaventa", `${hoy}T00:00:00`)
+    .lte("venta.fechaventa", `${hoy}T23:59:59`)
+    .order("creado_en", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row: any) => ({
+    id: row.iddetalleventa,
+    idventa: row.idventa,
+    ventaCodigo: String(row.idventa).slice(0, 8).toUpperCase(),
+    cantidad: Number(row.cantidad ?? 0),
+    precioUnitario: Number(row.precioventa ?? 0),
+    subtotal: Number(row.subtotal ?? 0),
+    producto: row.productos?.nombre ?? "Producto sin nombre",
+    codigo: row.productos?.codigoprod ?? "",
+    marca: row.productos?.marcas?.nombre ?? "Sin marca",
+    imagen: row.productos?.urlimagen ?? null,
+  }));
+}
