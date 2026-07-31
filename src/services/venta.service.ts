@@ -537,7 +537,16 @@ export async function cambiarEstadoVenta(idventa: string, estado: VentaEstado) {
 }
 
 export async function listarProductosVendidosHoy() {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/La_Paz",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+  // Bolivia usa UTC-4 durante todo el año.
+  const inicioUtc = new Date(`${hoy}T04:00:00.000Z`);
+  const finUtc = new Date(inicioUtc.getTime() + 24 * 60 * 60 * 1000);
 
   const { data, error } = await supabaseAdmin
     .from("detalle_venta")
@@ -565,9 +574,10 @@ export async function listarProductosVendidosHoy() {
       )
     `)
     .eq("venta.estado", "COMPLETADA")
-    .gte("venta.fechaventa", `${hoy}T00:00:00`)
-    .lte("venta.fechaventa", `${hoy}T23:59:59`)
-    .order("creado_en", { ascending: false });
+    .gte("venta.fechaventa", inicioUtc.toISOString())
+    .lt("venta.fechaventa", finUtc.toISOString())
+    .order("creado_en", { ascending: false })
+    .limit(20);
 
   if (error) throw new Error(error.message);
 
