@@ -45,18 +45,19 @@ function toNumber(value: unknown) {
 
 function normalizeStartDate(value?: string) {
   if (!value) return undefined;
-  return `${value}T00:00:00.000Z`;
+  return `${value}T00:00:00.000-04:00`;
 }
 
 function normalizeEndDate(value?: string) {
   if (!value) return undefined;
-  return `${value}T23:59:59.999Z`;
+  return `${value}T23:59:59.999-04:00`;
 }
 
 function periodKey(dateValue: string | null | undefined, tipo: ReporteAgrupacion) {
   const d = new Date(dateValue ?? "");
   if (Number.isNaN(d.getTime())) return "Sin fecha";
 
+  d.setUTCHours(d.getUTCHours() - 4);
   const year = d.getUTCFullYear();
   const month = `${d.getUTCMonth() + 1}`.padStart(2, "0");
   const day = `${d.getUTCDate()}`.padStart(2, "0");

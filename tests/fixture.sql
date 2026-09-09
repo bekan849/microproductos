@@ -1,0 +1,20 @@
+-- Esquema mínimo de prueba, NO ejecutar en Supabase ni en producción.
+CREATE ROLE anon;
+CREATE ROLE authenticated;
+CREATE ROLE service_role;
+CREATE TYPE producto_estado AS ENUM ('ACTIVO','INACTIVO');
+CREATE TYPE operacion_estado AS ENUM ('PENDIENTE','COMPLETADA','CANCELADA');
+CREATE TABLE usuarios (idusuario uuid PRIMARY KEY DEFAULT gen_random_uuid(), uidauth uuid UNIQUE, email text UNIQUE, nombre text, apellido text, telefono text, direccion text, estado text DEFAULT 'ACTIVO', ultimo_acceso timestamptz, creado_en timestamptz DEFAULT now(), actualizado_en timestamptz DEFAULT now());
+CREATE TABLE roles (idrol uuid PRIMARY KEY DEFAULT gen_random_uuid(), nombre text, descripcion text, estado boolean DEFAULT true);
+CREATE TABLE permisos (idpermiso uuid PRIMARY KEY DEFAULT gen_random_uuid(), codigo text, nombre text, modulo text, descripcion text, estado boolean DEFAULT true);
+CREATE TABLE usuario_rol (idusuariorol uuid PRIMARY KEY DEFAULT gen_random_uuid(), idusuario uuid REFERENCES usuarios, idrol uuid REFERENCES roles, estado boolean DEFAULT true);
+CREATE TABLE rol_permiso (idrolpermiso uuid PRIMARY KEY DEFAULT gen_random_uuid(), idrol uuid REFERENCES roles, idpermiso uuid REFERENCES permisos);
+CREATE TABLE marcas (idmarca uuid PRIMARY KEY DEFAULT gen_random_uuid(), nombre text);
+CREATE TABLE productos (idproducto uuid PRIMARY KEY DEFAULT gen_random_uuid(), nombre text, codigoprod text, idmarca uuid REFERENCES marcas, urlimagen text, stock integer NOT NULL DEFAULT 0, estado producto_estado DEFAULT 'INACTIVO');
+CREATE TABLE compra (idcompra uuid PRIMARY KEY DEFAULT gen_random_uuid(), estado operacion_estado DEFAULT 'PENDIENTE', total numeric(14,2) DEFAULT 0, fechaingreso timestamptz DEFAULT now());
+CREATE TABLE detalle_compra (iddetallecompra uuid PRIMARY KEY DEFAULT gen_random_uuid(), idcompra uuid REFERENCES compra, idproducto uuid REFERENCES productos, cantidad integer, preciocosto numeric(14,2), stockrestante integer, subtotal numeric GENERATED ALWAYS AS (cantidad * preciocosto) STORED, creado_en timestamptz DEFAULT now());
+CREATE TABLE venta (idventa uuid PRIMARY KEY DEFAULT gen_random_uuid(), idusuario uuid REFERENCES usuarios, fechaventa timestamptz DEFAULT now(), estado operacion_estado DEFAULT 'PENDIENTE', total numeric(14,2) DEFAULT 0, creado_en timestamptz DEFAULT now());
+CREATE TABLE detalle_venta (iddetalleventa uuid PRIMARY KEY DEFAULT gen_random_uuid(), idventa uuid REFERENCES venta, idproducto uuid REFERENCES productos, cantidad integer, precioventa numeric(14,2), subtotal numeric GENERATED ALWAYS AS (cantidad * precioventa) STORED, creado_en timestamptz DEFAULT now());
+CREATE TABLE detalle_venta_lote (iddetalleventalote uuid PRIMARY KEY DEFAULT gen_random_uuid(), iddetalleventa uuid REFERENCES detalle_venta, iddetallecompra uuid REFERENCES detalle_compra, idproducto uuid REFERENCES productos, cantidad integer, preciocosto numeric(14,2), subtotalcosto numeric(14,2), creado_en timestamptz DEFAULT now());
+GRANT USAGE ON SCHEMA public TO service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;

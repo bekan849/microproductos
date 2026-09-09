@@ -148,7 +148,7 @@ export async function editarLineaCompra(
     update.idproducto = payload.idproducto;
   }
 
-  update.stockrestante = nextCantidad;
+  update.stockrestante = 0; // Solo se editan compras pendientes.
 
   const { data, error } = await supabaseAdmin
     .from("detalle_compra")

@@ -22,8 +22,8 @@ declare global {
       user?: {
         idusuario: string;
         email?: string;
-        roles: string[];
-        permisos: string[];
+        roles?: string[];
+        permisos?: string[];
       };
     }
   }
@@ -73,6 +73,9 @@ export const decodeToken: RequestHandler = (
       process.env.JWT_SECRET as string
     ) as TokenPayload;
 
+    if (typeof decoded.idusuario !== "string" || !decoded.idusuario) return unauthorized(res);
+    if (decoded.roles && (!Array.isArray(decoded.roles) || decoded.roles.some(r => typeof r !== "string"))) return unauthorized(res);
+    if (decoded.permisos && (!Array.isArray(decoded.permisos) || decoded.permisos.some(p => typeof p !== "string"))) return unauthorized(res);
     req.user = {
       idusuario: decoded.idusuario,
       email: decoded.email,
@@ -80,8 +83,6 @@ export const decodeToken: RequestHandler = (
       permisos: decoded.permisos ?? [],
     };
 
-    // 🔥 DEBUG (puedes quitar luego)
-    console.log("USER:", req.user);
 
     return next();
   } catch (err) {
@@ -94,7 +95,8 @@ export const decodeToken: RequestHandler = (
 ========================= */
 export function requirePermission(permission: string): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
-    const permisos = req.user?.permisos ?? [];
+    if (!req.user?.idusuario) return unauthorized(res);
+    const permisos = req.user.permisos ?? [];
 
     if (!permisos.includes(permission)) {
       return forbidden(res, `No tienes permiso: ${permission}`);
@@ -109,7 +111,8 @@ export function requirePermission(permission: string): RequestHandler {
 ========================= */
 export function requireRole(role: string): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
-    const roles = req.user?.roles ?? [];
+    if (!req.user?.idusuario) return unauthorized(res);
+    const roles = req.user.roles ?? [];
 
     if (!roles.includes(role)) {
       return forbidden(res, `Requiere rol: ${role}`);
@@ -118,3 +121,7 @@ export function requireRole(role: string): RequestHandler {
     return next();
   };
 }
+export const requireAuth: RequestHandler = (req, res, next) => {
+  if (!req.user?.idusuario) return unauthorized(res);
+  return next();
+};

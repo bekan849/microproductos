@@ -51,14 +51,19 @@ const DETALLE_VENTA_SELECT = `
 `;
 
 function validarVentaCompleta(payload: VentaCompletaCreate) {
-  if (!Array.isArray(payload.items) || payload.items.length === 0) {
+  if (!Array.isArray(payload?.items) || payload.items.length === 0) {
     throw new Error("La venta debe tener al menos un item");
   }
 
+  const ids = new Set<string>();
   for (const item of payload.items) {
+    if (!item || typeof item.idproducto !== "string" || !item.idproducto.trim()) throw new Error("idproducto es obligatorio");
+    const id = item.idproducto.trim().toLowerCase();
+    if (ids.has(id)) throw new Error("No se permiten productos repetidos");
+    ids.add(id);
     if (!item.idproducto) throw new Error("idproducto es obligatorio");
 
-    if (!Number.isFinite(item.cantidad) || item.cantidad <= 0) {
+    if (!Number.isSafeInteger(item.cantidad) || item.cantidad <= 0) {
       throw new Error("cantidad inválida");
     }
 
@@ -373,113 +378,23 @@ async function revertirConsumoVenta(idventa: string) {
   }
 }
 
-async function eliminarVentaConDetalle(idventa: string) {
-  const detalles = await obtenerDetalleVenta(idventa);
-
-  if (detalles.length > 0) {
-    const { error: errorDetalleLote } = await supabaseAdmin
-      .from("detalle_venta_lote")
-      .delete()
-      .in(
-        "iddetalleventa",
-        detalles.map((d) => d.iddetalleventa)
-      );
-
-    if (errorDetalleLote) throw new Error(errorDetalleLote.message);
-  }
-
-  const { error: errorDetalle } = await supabaseAdmin
-    .from("detalle_venta")
-    .delete()
-    .eq("idventa", idventa);
-
-  if (errorDetalle) throw new Error(errorDetalle.message);
-
-  const { error: errorVenta } = await supabaseAdmin
-    .from("venta")
-    .delete()
-    .eq("idventa", idventa);
-
-  if (errorVenta) throw new Error(errorVenta.message);
-}
-
 export async function registrarVentaCompleta(payload: VentaCompletaCreate) {
   validarVentaCompleta(payload);
-
-  const insertVenta = buildVentaInsertData({
-    fechaventa: payload.fechaventa,
-    idusuario: payload.idusuario,
+  const { data, error } = await supabaseAdmin.rpc("registrar_venta_completa_atomica", {
+    p_payload: {
+      ...(payload.fechaventa ? { fechaventa: payload.fechaventa } : {}),
+      ...(payload.idusuario ? { idusuario: payload.idusuario } : {}),
+      items: payload.items.map((item) => ({
+        idproducto: item.idproducto.trim(), cantidad: item.cantidad, precioventa: item.precioventa,
+      })),
+    },
   });
-
-  const { data: venta, error: ventaError } = await supabaseAdmin
-    .from("venta")
-    .insert([insertVenta])
-    .select(VENTA_SELECT)
-    .single();
-
-  if (ventaError || !venta) {
-    throw new Error(ventaError?.message || "No se pudo crear la venta");
+  if (error?.code === "PGRST202") {
+    throw new Error("Falta instalar la migración de registro atómico de ventas en Supabase");
   }
-
-  try {
-    const detalleRows = payload.items.map((item) => ({
-      idventa: venta.idventa,
-      idproducto: item.idproducto,
-      cantidad: Number(item.cantidad),
-      precioventa: Number(item.precioventa),
-    }));
-
-    const { data: detallesInsertados, error: detalleError } =
-      await supabaseAdmin
-        .from("detalle_venta")
-        .insert(detalleRows)
-        .select(DETALLE_VENTA_SELECT);
-
-    if (detalleError || !detallesInsertados) {
-      throw new Error(detalleError?.message || "No se pudo crear el detalle");
-    }
-
-    for (const detalle of detallesInsertados) {
-      await consumirStockPorPeps(
-        detalle.iddetalleventa,
-        detalle.idproducto,
-        Number(detalle.cantidad),
-        Number(detalle.precioventa)
-      );
-    }
-
-    const total = detallesInsertados.reduce(
-      (acc, row) => acc + Number(row.subtotal ?? 0),
-      0
-    );
-
-    const { error: totalError } = await supabaseAdmin
-      .from("venta")
-      .update({ total })
-      .eq("idventa", venta.idventa);
-
-    if (totalError) throw new Error(totalError.message);
-
-    const { data: ventaFinal, error: estadoError } = await supabaseAdmin
-      .from("venta")
-      .update({ estado: "COMPLETADA" })
-      .eq("idventa", venta.idventa)
-      .select(VENTA_SELECT)
-      .single();
-
-    if (estadoError || !ventaFinal) {
-      throw new Error(estadoError?.message || "No se pudo completar la venta");
-    }
-
-    return ventaFinal;
-  } catch (err) {
-    try {
-      await eliminarVentaConDetalle(venta.idventa);
-    } catch {
-      // rollback best-effort
-    }
-    throw err;
-  }
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("No se recibió la venta registrada");
+  return data;
 }
 
 export async function cambiarEstadoVenta(idventa: string, estado: VentaEstado) {

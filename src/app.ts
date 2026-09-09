@@ -16,6 +16,7 @@ import { compraRouter } from "./routes/compra.routes";
 import { marcaRouter } from "./routes/marca.routes";
 import { categoriaRouter } from "./routes/categoria.routes";
 import { proveedorRouter } from "./routes/proveedor.routes";
+import { dashboardRouter } from "./routes/dashboard.routes";
 import { reporteRouter } from "./routes/reporte.routes";
 
 /* 🧱 MIDDLEWARES */
@@ -29,15 +30,16 @@ export const app = express();
 ========================= */
 app.use(helmet());
 
-const allowedOrigins = [
+const allowedOrigins = new Set([
   "http://localhost:5173",
   "https://sis-stockf.onrender.com",
-];
+  ...env.CORS_ORIGIN.split(",").map(o => o.trim()).filter(o => o && o !== "*"),
+]);
 
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.has(origin)) {
         callback(null, true);
         return;
       }
@@ -45,10 +47,11 @@ app.use(
       callback(new Error("No permitido por CORS"));
     },
     credentials: true,
+    maxAge: 600,
   })
 );
 
-app.use(morgan("dev"));
+if (env.NODE_ENV !== "production") app.use(morgan("dev"));
 
 /* =========================
    📥 PARSERS
@@ -77,6 +80,7 @@ app.use("/api/marcas", marcaRouter);
 app.use("/api/categorias", categoriaRouter);
 app.use("/api/proveedores", proveedorRouter);
 app.use("/api/reportes", reporteRouter);
+app.use("/api/dashboard", dashboardRouter);
 
 /* =========================
    ❌ 404

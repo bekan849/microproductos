@@ -52,13 +52,12 @@ export async function getVentaById(req: ReqWithId, res: Response) {
 
 export async function postRegistrarVentaCompleta(req: Request, res: Response) {
   try {
-    console.log("BODY registrar venta completa:", req.body);
 
-    const data = await registrarVentaCompleta(req.body);
+    const data = await registrarVentaCompleta({ ...req.body, idusuario: req.user!.idusuario });
 
     return res.status(201).json({ ok: true, data });
   } catch (err) {
-    console.error("ERROR registrar venta completa:", err);
+    if (process.env.NODE_ENV !== "production") console.error("ERROR registrar venta completa:", err);
 
     const message =
       err instanceof Error ? err.message : "Error inesperado";
