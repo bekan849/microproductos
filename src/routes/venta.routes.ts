@@ -1,3 +1,4 @@
+import { auditMiddleware } from "../middlewares/audit.middleware";
 import { Router } from "express";
 import {
   getVentas,
@@ -29,12 +30,14 @@ ventaRouter.get(
 ventaRouter.post(
   "/",
   requirePermission("ventas.crear"),
+  auditMiddleware("productos"),
   postVenta
 );
 
 ventaRouter.post(
   "/registrar-completa",
   requirePermission("ventas.crear"),
+  auditMiddleware("productos"),
   postRegistrarVentaCompleta
 );
 
@@ -53,6 +56,7 @@ ventaRouter.get(
 ventaRouter.patch(
   "/:id/estado",
   requirePermission("ventas.estado"),
+  auditMiddleware("productos"),
   patchVentaEstado
 );
 
@@ -66,17 +70,20 @@ ventaRouter.get(
 ventaRouter.post(
   "/:id/detalles",
   requirePermission("ventas.editar"),
+  auditMiddleware("productos"),
   postDetalleVenta
 );
 
 ventaRouter.put(
   "/:id/detalles/:iddetalle",
   requirePermission("ventas.editar"),
+  auditMiddleware("productos"),
   putDetalleVenta
 );
 
 ventaRouter.delete(
   "/:id/detalles/:iddetalle",
   requirePermission("ventas.editar"),
+  auditMiddleware("productos"),
   deleteDetalleVenta
 );

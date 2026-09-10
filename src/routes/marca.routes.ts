@@ -1,3 +1,4 @@
+import { auditMiddleware } from "../middlewares/audit.middleware";
 import { Router } from "express";
 import {
   getMarcas,
@@ -22,23 +23,27 @@ marcaRouter.get(
 marcaRouter.post(
   "/",
   requirePermission("marcas.crear"),
+  auditMiddleware("productos"),
   postMarca
 );
 
 marcaRouter.put(
   "/:id",
   requirePermission("marcas.editar"),
+  auditMiddleware("productos"),
   putMarca
 );
 
 marcaRouter.patch(
   "/:id/estado",
   requirePermission("marcas.editar"),
+  auditMiddleware("productos"),
   patchMarcaEstado
 );
 
 marcaRouter.delete(
   "/:id",
   requireRole("ADMINISTRADOR"),
+  auditMiddleware("productos"),
   deleteMarca
 );

@@ -1,3 +1,4 @@
+import { auditMiddleware } from "../middlewares/audit.middleware";
 import { Router } from "express";
 import {
   getProductos,
@@ -29,23 +30,27 @@ productoRouter.get(
 productoRouter.post(
   "/",
   requirePermission("productos.crear"),
+  auditMiddleware("productos"),
   postProducto
 );
 
 productoRouter.put(
   "/:id",
   requirePermission("productos.editar"),
+  auditMiddleware("productos"),
   putProducto
 );
 
 productoRouter.patch(
   "/:id/estado",
   requirePermission("productos.estado"),
+  auditMiddleware("productos"),
   patchProductoEstado
 );
 
 productoRouter.delete(
   "/:id",
   requireRole("ADMINISTRADOR"),
+  auditMiddleware("productos"),
   deleteProducto
 );
