@@ -5,6 +5,8 @@ import jwt from "jsonwebtoken";
    🔐 TIPADO DEL TOKEN
 ========================= */
 type TokenPayload = {
+  nombre?: string;
+  apellido?: string;
   idusuario: string;
   email?: string;
   roles?: string[];
@@ -20,6 +22,8 @@ declare global {
   namespace Express {
     interface Request {
       user?: {
+        nombre?: string;
+        apellido?: string;
         idusuario: string;
         email?: string;
         roles?: string[];
@@ -77,6 +81,8 @@ export const decodeToken: RequestHandler = (
     if (decoded.roles && (!Array.isArray(decoded.roles) || decoded.roles.some(r => typeof r !== "string"))) return unauthorized(res);
     if (decoded.permisos && (!Array.isArray(decoded.permisos) || decoded.permisos.some(p => typeof p !== "string"))) return unauthorized(res);
     req.user = {
+      nombre: typeof decoded.nombre === "string" ? decoded.nombre : undefined,
+      apellido: typeof decoded.apellido === "string" ? decoded.apellido : undefined,
       idusuario: decoded.idusuario,
       email: decoded.email,
       roles: decoded.roles ?? [],

@@ -26,7 +26,7 @@ export const auditTables: Record<string, [string, string]> = {
 
 export async function auditSnapshot(resource: string, id: string | null, body: any) {
   const table = auditTables[resource];
-  if (!table) return { values: null, available: true };
+  if (!table) return { values: null, available: false };
   try {
     let query = supabaseAdmin.from(table[0]).select("*");
     if (id) query = query.eq(table[1], id);
@@ -34,10 +34,24 @@ export async function auditSnapshot(resource: string, id: string | null, body: a
       query = query.eq("idusuario", body.idusuario).eq("idrol", body.idrol);
     else if (resource === "rol-permiso" && body?.idrol && body?.idpermiso)
       query = query.eq("idrol", body.idrol).eq("idpermiso", body.idpermiso);
-    else return { values: null, available: true };
+    else return { values: null, available: false };
     const { data, error } = await query.abortSignal(AbortSignal.timeout(4000)).maybeSingle();
     return { values: error ? null : auditValues(data), available: !error };
   } catch { return { values: null, available: false }; }
+}
+
+export function auditName(actor: any): string | null {
+  const name = [actor?.nombre, actor?.apellido].filter(v => typeof v === "string" && v.trim()).join(" ").trim();
+  return name ? name.slice(0, 250) : null;
+}
+
+export async function auditResponsibleNames(ids: string[]) {
+  if (ids.length > 25 || ids.some(id => !id || id.length > 100)) throw new Error("Identificadores inválidos");
+  if (!ids.length) return [];
+  const { data, error } = await supabaseAdmin.from("usuarios").select("idusuario,nombre,apellido")
+    .in("idusuario", [...new Set(ids)]).abortSignal(AbortSignal.timeout(4000));
+  if (error) throw new Error("No se pudieron consultar los nombres de los responsables");
+  return (data ?? []).map(user => ({ idusuario: String(user.idusuario), nombre: auditName(user) }));
 }
 
 export async function appendAudit(event: Record<string, unknown>): Promise<boolean> {
