@@ -13,6 +13,7 @@ export const env = {
   NODE_ENV: process.env.NODE_ENV ?? "development",
   CORS_ORIGIN: process.env.CORS_ORIGIN ?? "http://localhost:5173",
 
+  JWT_SECRET: required("JWT_SECRET"),
   // Supabase
   SUPABASE_URL: required("SUPABASE_URL"),
   SUPABASE_SERVICE_ROLE_KEY: required("SUPABASE_SERVICE_ROLE_KEY"),
