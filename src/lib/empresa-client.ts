@@ -7,6 +7,7 @@ const scopedTables = new Set(['categorias','marcas','proveedor','productos','pro
 const rpcNames: Record<string,string> = {
   registrar_venta_completa_atomica: 'registrar_venta_empresa',
   dashboard_inicial: 'dashboard_empresa',
+  registrar_compra_empresa: 'registrar_compra_empresa',
 };
 
 /** La API privilegiada de Supabase no aplica RLS: todos los accesos de negocio

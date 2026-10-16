@@ -17,6 +17,8 @@ export type CompraCompletaCreate = {
     idproducto: string;
     cantidad: number;
     preciocosto: number;
+    precioventa?: number;
+    precioventa_anterior?: number;
   }>;
 };
 
@@ -41,7 +43,7 @@ function validarCompraCompleta(payload: CompraCompletaCreate) {
   for (const item of payload.items) {
     if (!item.idproducto) throw new Error("idproducto es obligatorio");
 
-    if (!Number.isFinite(item.cantidad) || item.cantidad <= 0) {
+    if (!Number.isSafeInteger(item.cantidad) || item.cantidad <= 0) {
       throw new Error("cantidad inválida");
     }
 
@@ -226,98 +228,15 @@ await sincronizarEstadoProductoPorStock(det.idproducto);
   }
 }
 
-async function eliminarCompraConDetalle(idcompra: string) {
-  const { error: errorDetalle } = await supabaseAdmin
-    .from("detalle_compra")
-    .delete()
-    .eq("idcompra", idcompra);
-
-  if (errorDetalle) throw new Error(errorDetalle.message);
-
-  const { error: errorCompra } = await supabaseAdmin
-    .from("compra")
-    .delete()
-    .eq("idcompra", idcompra);
-
-  if (errorCompra) throw new Error(errorCompra.message);
-}
-
 export async function registrarCompraCompleta(payload: CompraCompletaCreate) {
   validarCompraCompleta(payload);
-
-  const insertCompra = buildCompraInsertData({
-    idproveedor: payload.idproveedor,
-    fechaingreso: payload.fechaingreso,
-    idusuario: payload.idusuario,
-  });
-
-  const { data: compra, error: compraError } = await supabaseAdmin
-    .from("compra")
-    .insert([insertCompra])
-    .select(COMPRA_SELECT)
-    .single();
-
-  if (compraError || !compra) {
-    throw new Error(compraError?.message || "No se pudo crear la compra");
+  const { data, error } = await supabaseAdmin.rpc('registrar_compra_empresa', { p_payload: payload });
+  if (error) {
+    if (error.code === 'PGRST202') throw new Error('Falta instalar la actualización SQL de compras. No se registró la compra.');
+    throw new Error(error.message);
   }
-
-  try {
-    const detalleRows = payload.items.map((item) => ({
-      idcompra: compra.idcompra,
-      idproducto: item.idproducto,
-      cantidad: Number(item.cantidad),
-      preciocosto: Number(item.preciocosto),
-      stockrestante: 0,
-    }));
-
-    const { error: detalleError } = await supabaseAdmin
-      .from("detalle_compra")
-      .insert(detalleRows);
-
-    if (detalleError) throw new Error(detalleError.message);
-
-    const { data: detallesInsertados, error: detallesReadError } =
-      await supabaseAdmin
-        .from("detalle_compra")
-        .select("subtotal")
-        .eq("idcompra", compra.idcompra);
-
-    if (detallesReadError) throw new Error(detallesReadError.message);
-
-    const total = (detallesInsertados ?? []).reduce(
-      (acc, row) => acc + Number(row.subtotal ?? 0),
-      0
-    );
-
-    const { error: totalError } = await supabaseAdmin
-      .from("compra")
-      .update({ total })
-      .eq("idcompra", compra.idcompra);
-
-    if (totalError) throw new Error(totalError.message);
-
-    await sumarStockPorCompra(compra.idcompra);
-
-    const { data: compraFinal, error: estadoError } = await supabaseAdmin
-      .from("compra")
-      .update({ estado: "COMPLETADA" })
-      .eq("idcompra", compra.idcompra)
-      .select(COMPRA_SELECT)
-      .single();
-
-    if (estadoError || !compraFinal) {
-      throw new Error(estadoError?.message || "No se pudo completar la compra");
-    }
-
-    return compraFinal;
-  } catch (err) {
-    try {
-      await eliminarCompraConDetalle(compra.idcompra);
-    } catch {
-      // rollback best-effort
-    }
-    throw err;
-  }
+  if (!data) throw new Error('No se recibió la compra registrada');
+  return data;
 }
 
 async function actualizarEstadoCompra(idcompra: string, estado: CompraEstado) {

@@ -46,5 +46,15 @@ test('API de productos integra permisos, RPC y usuario autenticado',async t=>{
       const response=await request('/api/ventas/registrar-completa',['ventas.crear'],{items:[{idproducto:'producto',cantidad:1,precioventa:5}]});
       assert.equal(response.status,400);assert.match((await response.json()).message,/migración/);assert.equal(calls.length,1);rpcError=null;
     });
+    await t.test('Compra completa usa una RPC con identidad y empresa verificadas',async()=>{
+      calls=[];const response=await request('/api/compras/registrar-completa',['compras.crear'],{idusuario:'ajeno',idproveedor:'proveedor',items:[{idproducto:'producto',cantidad:2,preciocosto:10}]});
+      assert.equal(response.status,201);assert.equal(calls.length,1);assert.equal(calls[0].name,'registrar_compra_empresa');
+      assert.equal(calls[0].args.p_idusuario,actor);assert.equal(calls[0].args.p_idempresa,company);
+    });
+    await t.test('Compra no recurre a escrituras parciales si falta la migración',async()=>{
+      calls=[];rpcError={code:'PGRST202',message:'missing'};
+      const response=await request('/api/compras/registrar-completa',['compras.crear'],{idproveedor:'proveedor',items:[{idproducto:'producto',cantidad:2,preciocosto:10}]});
+      assert.equal(response.status,400);assert.match((await response.json()).message,/actualización SQL/);assert.equal(calls.length,1);rpcError=null;
+    });
   } finally { server.closeAllConnections();await new Promise(resolve=>server.close(resolve)); }
 });

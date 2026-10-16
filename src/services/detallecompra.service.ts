@@ -48,6 +48,7 @@ export async function listarDetalleCompra(idcompra: string) {
         idproducto,
         codigoprod,
         nombre,
+        marcas:marcas (nombre),
         estado
       )
     `)
