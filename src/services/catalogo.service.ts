@@ -1,8 +1,9 @@
+import { validarPortada, type PortadaCatalogo } from "./catalogo-portada";
 import { supabaseAdmin } from "../lib/supabase";
 export type CatalogoConfig = {
-  nombre: string; subtitulo: string; telefono: string; mostrarPrecios: boolean;
+  nombre: string; subtitulo: string; telefono: string; mostrarPrecios: boolean; tipoPrecio: "publico" | "mayorista";
   soloConStock: boolean; modo: "manual" | "automatico"; productos: string[];
-  marca: string; categoria: string;
+  marca: string; categoria: string; portada?: PortadaCatalogo | null;
 };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function validarId(id: string) { if (!uuid.test(id)) throw new Error("Identificador inválido"); return id; }
@@ -19,10 +20,12 @@ export function validarCatalogo(input: unknown): CatalogoConfig {
     throw new Error("Configuración inválida");
   if (!Array.isArray(b.productos) || b.productos.length > 1000 || b.productos.some(id => typeof id !== "string" || !uuid.test(id)))
     throw new Error("Selecciona hasta 1000 productos válidos");
+  const tipoPrecio = b.tipoPrecio === undefined ? "publico" : b.tipoPrecio;
+  if (tipoPrecio !== "publico" && tipoPrecio !== "mayorista") throw new Error("Tipo de precio inválido");
   const marca = str("marca", 36), categoria = str("categoria", 36);
   if (marca) validarId(marca); if (categoria) validarId(categoria);
-  return { nombre, subtitulo, telefono, mostrarPrecios: b.mostrarPrecios, soloConStock: b.soloConStock,
-    modo: b.modo as CatalogoConfig["modo"], productos: [...new Set(b.productos as string[])], marca, categoria };
+  return { nombre, subtitulo, telefono, tipoPrecio, mostrarPrecios: b.mostrarPrecios, soloConStock: b.soloConStock,
+    modo: b.modo as CatalogoConfig["modo"], productos: [...new Set(b.productos as string[])], marca, categoria, portada: validarPortada(b.portada) };
 }
 const columns = "idcatalogo,nombre,configuracion,actualizado_en";
 function dbError(error: {code?: string} | null) {
@@ -30,9 +33,13 @@ function dbError(error: {code?: string} | null) {
   if (["42P01","PGRST205"].includes(error.code ?? "")) throw new Error("Falta aplicar la migración de catálogos en la base de datos");
   throw new Error("No se pudo guardar o consultar el catálogo");
 }
-export async function listarCatalogos() {
-  const { data, error } = await supabaseAdmin.from("catalogos").select(columns).order("actualizado_en", { ascending: false }).limit(200);
+export async function listarCatalogos(resumen = false) {
+  const { data, error } = await supabaseAdmin.from("catalogos").select(resumen ? "idcatalogo,nombre,actualizado_en" : columns).order("actualizado_en", { ascending: false }).limit(200);
   dbError(error); return data;
+}
+export async function obtenerCatalogo(id: string) {
+  const { data, error } = await supabaseAdmin.from("catalogos").select(columns).eq("idcatalogo", validarId(id)).maybeSingle();
+  dbError(error); if (!data) throw new Error("Catálogo no encontrado en esta empresa"); return data;
 }
 export async function guardarCatalogo(input: unknown, id?: string) {
   const config = validarCatalogo(input);

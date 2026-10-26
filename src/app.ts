@@ -59,6 +59,11 @@ if (env.NODE_ENV !== "production") app.use(morgan("dev"));
 /* =========================
    📥 PARSERS
 ========================= */
+app.use("/api/catalogos", express.json({ limit: "2mb" }), (err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err?.type === "entity.too.large") { res.status(413).json({ ok: false, message: "La portada supera el tamaño permitido" }); return; }
+  if (err?.type === "entity.parse.failed") { res.status(400).json({ ok: false, message: "JSON de catálogo inválido" }); return; }
+  next(err);
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
