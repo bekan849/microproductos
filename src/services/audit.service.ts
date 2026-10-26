@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "../lib/supabase";
 
 // Explicit business-field allowlist. Never persist request headers or raw bodies.
-const fields = new Set("idusuario nombre apellido email estado idrol idpermiso codigo modulo idusuariorol idrolpermiso idproducto idcategoria idmarca idproveedor idcompra idventa iddetallecompra iddetalleventa cantidad stock stockminimo stockrestante precioventa preciomayor preciocosto precio total subtotal fechaventa fechaingreso codigoprod descripcion telefono direccion urlimagen nit".split(" "));
+const fields = new Set("idcatalogo idusuario nombre apellido email estado idrol idpermiso codigo modulo idusuariorol idrolpermiso idproducto idcategoria idmarca idproveedor idcompra idventa iddetallecompra iddetalleventa cantidad stock stockminimo stockrestante precioventa preciomayor preciocosto precio total subtotal fechaventa fechaingreso codigoprod descripcion telefono direccion urlimagen nit".split(" "));
 const containers = new Set(["items", "detalles", "venta", "compra", "producto", "usuario"]);
 export function auditValues(value: unknown, depth = 0): unknown {
   if (!value || typeof value !== "object" || depth > 3) return null;
@@ -16,6 +16,7 @@ export function auditValues(value: unknown, depth = 0): unknown {
 }
 
 export const auditTables: Record<string, [string, string]> = {
+  catalogos: ["catalogos", "idcatalogo"],
   usuarios: ["usuarios", "idusuario"], roles: ["roles", "idrol"], permisos: ["permisos", "idpermiso"],
   "usuario-rol": ["usuario_rol", "idusuariorol"], "rol-permiso": ["rol_permiso", "idrolpermiso"],
   productos: ["productos", "idproducto"], categorias: ["categorias", "idcategoria"],

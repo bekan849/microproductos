@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { empresaContext, requireEmpresaContext } from './empresa-context';
 
-const scopedTables = new Set(['categorias','marcas','proveedor','productos','productos_list_view',
+const scopedTables = new Set(['catalogos','categorias','marcas','proveedor','productos','productos_list_view',
   'compra','detalle_compra','venta','detalle_venta','detalle_venta_lote',
   'roles','usuario_rol','rol_permiso','historial_acciones','v_usuario_permisos']);
 const rpcNames: Record<string,string> = {

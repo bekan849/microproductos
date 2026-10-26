@@ -1,3 +1,4 @@
+import { catalogoRouter } from "./routes/catalogo.routes";
 import { auditRouter } from "./routes/audit.routes";
 import express from "express";
 import cors from "cors";
@@ -75,6 +76,7 @@ app.use(decodeToken);
 /* =========================
    📦 MÓDULOS
 ========================= */
+app.use("/api/catalogos", catalogoRouter);
 app.use("/api/productos", productoRouter);
 app.use("/api/ventas", ventaRouter);
 app.use("/api/compras", compraRouter);
